@@ -1,0 +1,20 @@
+#aqui poner todos los ignore para que no se suban al repositorio
+#utilizando fastapi y mysql
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+
+
+
