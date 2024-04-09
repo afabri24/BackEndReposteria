@@ -62,10 +62,10 @@ def crear_producto(data_producto:ProductoSchema):
 def crear_imagen_producto(data_producto_imagen:ProductoImagenSchema):
     new_producto_imagen = data_producto_imagen.dict()
     if 'id' in new_producto_imagen:
-        del new_producto_imagen['idProducto']
+        del new_producto_imagen['id']
     with Session(engine) as session:
         # Verifica si el producto existe
-        producto = session.query(Producto).filter(Producto.idProducto == new_producto_imagen['idProducto']).first()
+        producto = session.query(Producto).filter(Producto.c.idProducto == new_producto_imagen['idProducto']).first()
         if not producto:
             return {"error": "Producto no encontrado"}
         # Inserta la imagen del producto
