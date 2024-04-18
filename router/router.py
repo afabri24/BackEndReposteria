@@ -1,8 +1,8 @@
-from fastapi import APIRouter
-from schema.usuario_schema import UsuarioSchema
+from fastapi import APIRouter, Response
+from schema.usuario_schema import LoginSchema, UsuarioSchema
 from schema.producto_schema import ProductoSchema
 from schema.producto_imagen_schema import ProductoImagenSchema
-from model.usuario import usuario
+from model.usuario import usuario as Usuario
 from model.producto import producto as Producto
 from model.producto_imagen import producto_imagen
 from config.db import engine
@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from sqlalchemy import insert
+from sqlalchemy.exc import NoResultFound
 
 api_router = APIRouter()
 
@@ -72,5 +73,17 @@ def crear_imagen_producto(data_producto_imagen:ProductoImagenSchema):
         session.execute(producto_imagen.insert().values(**new_producto_imagen))
         session.commit()
     return {"message": "Imagen producto creada correctamente"}
-    
-    
+
+
+@api_router.post("/login")
+def login(usuario: LoginSchema):
+    with Session(engine) as session:
+        try:
+            usuario_db = session.query(Usuario).filter(Usuario.c.email == usuario.email).one()
+            if usuario_db.password == usuario.password:
+                return {"message": "Inicio de sesión exitoso"}
+            else:
+                raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+        except NoResultFound:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        

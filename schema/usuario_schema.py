@@ -8,3 +8,7 @@ class UsuarioSchema(BaseModel):
     email: str
     password: str
     rol: int
+
+class LoginSchema(BaseModel):
+    email: str
+    password: str
