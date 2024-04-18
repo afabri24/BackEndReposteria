@@ -12,6 +12,8 @@ from schema.producto_imagen_schema import ProductoImagenSchema
 from schema.categoria_schema import CategoriaSchema
 from schema.ingrediente_schema import IngredienteSchema
 from schema.medida_schema import MedidaSchema
+from schema.producto_categoria_schema import ProductoCategoriaSchema
+from schema.producto_ingrediente_schema import ProductoIngredienteSchema
 
 # Importar los modelos
 from model.usuario import usuario
@@ -19,6 +21,8 @@ from model.producto import producto as Producto
 from model.producto_imagen import producto_imagen
 from model.categoria import categoria as Categoria
 from model.ingrediente import ingrediente as Ingrediente
+from model.producto_categoria import producto_categoria as ProductoCategoria
+from model.producto_ingrediente import producto_ingrediente as ProductoIngrediente
 from model.medida import medida as Medida
 
 
@@ -39,7 +43,7 @@ api_router = APIRouter()
 def root():
     return {"message": "Hi, I'm the user router!"}
 
-
+# Rutas de la API usuarios
 @api_router.get("/usuarios")
 def obtener_todos_los_usuarios():
     with Session(engine) as session:
@@ -63,6 +67,7 @@ def crear_usuario(data_usuario:UsuarioSchema):
 def actualizar_usuario(data_usuario:UsuarioSchema):
     print(data_usuario)
 
+# Rutas de la API productos
 @api_router.get("/productos")
 def obtener_todos_los_productos():
     with Session(engine) as session:
@@ -76,9 +81,10 @@ def crear_producto(data_producto:ProductoSchema):
     if 'id' in new_producto:
         del new_producto['id']
     with Session(engine) as session:
-        session.execute(Producto.insert().values(**new_producto))
+        result = session.execute(Producto.insert().values(**new_producto))
         session.commit()
-    return {"message": "Producto creado correctamente"}
+        id_producto = result.inserted_primary_key[0]
+    return {"message": "Producto creado correctamente", "idProducto": id_producto}
 
 @api_router.post("/imagen_producto")
 def crear_imagen_producto(data_producto_imagen:ProductoImagenSchema):
@@ -108,14 +114,16 @@ def login(usuario: LoginSchema):
         except NoResultFound:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
+# Rutas de la API categorias
 @api_router.get("/categorias")
 def obtener_todas_las_categorias():
     with Session(engine) as session:
         stmt = select(Categoria)
         result = session.execute(stmt)
         return [{"idCategoria": row.idCategoria, "nombre": row.nombre} for row in result]
+    
 
-
+#
 @api_router.get("/ingredientes")
 def obtener_todos_los_ingredientes():
     with Session(engine) as session:
@@ -134,5 +142,68 @@ def crear_ingrediente(data_ingrediente:IngredienteSchema):
         session.commit()
     return {"message": "Ingrediente creado correctamente"}
 
+
+
+# Rutas de la API categoriaProducto
+@api_router.get("/categoria_producto")
+def obtener_todas_las_categorias_producto():
+    with Session(engine) as session:
+        stmt = select(ProductoCategoria.c.idProducto, Producto.c.nombre.label('nombreProducto'), Categoria.c.idCategoria, Categoria.c.nombre.label('nombreCategoria')).\
+            join(Producto, Producto.c.idProducto == ProductoCategoria.c.idProducto).\
+            join(Categoria, Categoria.c.idCategoria == ProductoCategoria.c.idCategoria)
+        result = session.execute(stmt)
+        return [{"idProducto": row.idProducto, 
+                 "nombreProducto": row.nombreProducto, 
+                 "idCategoria": row.idCategoria, 
+                 "nombreCategoria": row.nombreCategoria} for row in result]
+
+
+
+@api_router.post("/categoria_producto")
+def agregar_categoria_producto(id_producto:int, id_categoria:int):
+    with Session(engine) as session:
+        # Verifica si el producto existe
+        producto = session.query(Producto).filter(Producto.c.idProducto == id_producto).first()
+        if not producto:
+            return {"error": "Producto no encontrado"}
+        # Verifica si la categoria existe
+        categoria = session.query(Categoria).filter(Categoria.c.idCategoria == id_categoria).first()
+        if not categoria:
+            return {"error": "Categoria no encontrada"}
+        # Inserta una nueva fila en la tabla ProductoCategoria
+        session.execute(ProductoCategoria.insert().values(idProducto=id_producto, idCategoria=id_categoria))
+        session.commit()
+    return {"message": "Categoria producto creada correctamente"}
+
+
+# Rutas de la API productoIngrediente
+@api_router.get("/producto_ingrediente")
+def obtener_todos_los_productos_ingredientes():
+    with Session(engine) as session:
+        stmt = select(ProductoIngrediente.c.idProducto, Producto.c.nombre.label('nombreProducto'), Ingrediente.c.idIngrediente, Ingrediente.c.nombre.label('nombreIngrediente'), Ingrediente.c.cantidad, Medida.c.tipo.label('nombreMedida')).\
+            join(Producto, Producto.c.idProducto == ProductoIngrediente.c.idProducto).\
+            join(Ingrediente, Ingrediente.c.idIngrediente == ProductoIngrediente.c.idIngrediente).\
+            join(Medida, Medida.c.idMedida == Ingrediente.c.idMedida)
+        result = session.execute(stmt)
+        return [{"idProducto": row.idProducto, 
+                 "nombreProducto": row.nombreProducto, 
+                 "idIngrediente": row.idIngrediente, 
+                 "nombreIngrediente": row.nombreIngrediente, 
+                 "cantidad": row.cantidad, 
+                 "nombreMedida": row.nombreMedida} for row in result]
     
-    
+@api_router.post("/producto_ingrediente")
+def agregar_producto_ingrediente(id_producto:int, id_ingrediente:int):
+    with Session(engine) as session:
+        # Verifica si el producto existe
+        producto = session.query(Producto).filter(Producto.c.idProducto == id_producto).first()
+        if not producto:
+            return {"error": "Producto no encontrado"}
+        # Verifica si el ingrediente existe
+        ingrediente = session.query(Ingrediente).filter(Ingrediente.c.idIngrediente == id_ingrediente).first()
+        if not ingrediente:
+            return {"error": "Ingrediente no encontrado"}
+        # Inserta una nueva fila en la tabla ProductoIngrediente
+        session.execute(ProductoIngrediente.insert().values(idProducto=id_producto, idIngrediente=id_ingrediente))
+        session.commit()
+    return {"message": "Producto ingrediente creado correctamente"}
