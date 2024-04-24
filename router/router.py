@@ -160,18 +160,18 @@ def obtener_todas_las_categorias_producto():
 
 
 @api_router.post("/categoria_producto")
-def agregar_categoria_producto(id_producto:int, id_categoria:int):
+def agregar_categoria_producto(producto_categoria: ProductoCategoriaSchema):
     with Session(engine) as session:
         # Verifica si el producto existe
-        producto = session.query(Producto).filter(Producto.c.idProducto == id_producto).first()
+        producto = session.query(Producto).filter(Producto.c.idProducto == producto_categoria.idProducto).first()
         if not producto:
             return {"error": "Producto no encontrado"}
         # Verifica si la categoria existe
-        categoria = session.query(Categoria).filter(Categoria.c.idCategoria == id_categoria).first()
+        categoria = session.query(Categoria).filter(Categoria.c.idCategoria == producto_categoria.idCategoria).first()
         if not categoria:
             return {"error": "Categoria no encontrada"}
         # Inserta una nueva fila en la tabla ProductoCategoria
-        session.execute(ProductoCategoria.insert().values(idProducto=id_producto, idCategoria=id_categoria))
+        session.execute(ProductoCategoria.insert().values(idProducto=producto_categoria.idProducto, idCategoria=producto_categoria.idCategoria))
         session.commit()
     return {"message": "Categoria producto creada correctamente"}
 
@@ -193,17 +193,17 @@ def obtener_todos_los_productos_ingredientes():
                  "nombreMedida": row.nombreMedida} for row in result]
     
 @api_router.post("/producto_ingrediente")
-def agregar_producto_ingrediente(id_producto:int, id_ingrediente:int):
+def agregar_producto_ingrediente(producto_ingrediente: ProductoIngredienteSchema):
     with Session(engine) as session:
         # Verifica si el producto existe
-        producto = session.query(Producto).filter(Producto.c.idProducto == id_producto).first()
+        producto = session.query(Producto).filter(Producto.c.idProducto == producto_ingrediente.idProducto).first()
         if not producto:
             return {"error": "Producto no encontrado"}
         # Verifica si el ingrediente existe
-        ingrediente = session.query(Ingrediente).filter(Ingrediente.c.idIngrediente == id_ingrediente).first()
+        ingrediente = session.query(Ingrediente).filter(Ingrediente.c.idIngrediente == producto_ingrediente.idIngrediente).first()
         if not ingrediente:
             return {"error": "Ingrediente no encontrado"}
         # Inserta una nueva fila en la tabla ProductoIngrediente
-        session.execute(ProductoIngrediente.insert().values(idProducto=id_producto, idIngrediente=id_ingrediente))
+        session.execute(ProductoIngrediente.insert().values(idProducto=producto_ingrediente.idProducto, idIngrediente=producto_ingrediente.idIngrediente))
         session.commit()
     return {"message": "Producto ingrediente creado correctamente"}
