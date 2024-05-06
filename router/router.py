@@ -256,9 +256,6 @@ def agregar_producto_ingrediente(producto_ingrediente: ProductoIngredienteSchema
         # Inserta una nueva fila en la tabla ProductoIngrediente
         session.execute(ProductoIngrediente.insert().values(idProducto=producto_ingrediente.idProducto, idIngrediente=producto_ingrediente.idIngrediente))
         session.commit()
-<<<<<<< Updated upstream
-    return {"message": "Producto ingrediente creado correctamente"}
-=======
     return {"message": "Producto ingrediente creado correctamente"}
 
 @api_router.delete("/producto_ingrediente")
@@ -488,4 +485,3 @@ def eliminar_pago_pedido(pedido_pago: PedidoPagoSchema):
     return {"message": "Pago pedido eliminado correctamente"}
 
 # Rutas de la API
->>>>>>> Stashed changes
