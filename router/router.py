@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Response
-from schema.usuario_schema import LoginSchema, UsuarioSchema
+from schema.usuario_schema import ActualizarPerfilSchema, LoginSchema, UsuarioSchema, ActualizarPerfilSchema, ActualizarContrasenaSchema, RegistrarUsuarioSchema
 from schema.producto_schema import ProductoSchema
 from schema.producto_imagen_schema import ProductoImagenSchema
 from model.usuario import usuario as Usuario
@@ -54,6 +54,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import join
 from sqlalchemy.sql import text
 
+from sqlalchemy import update
 
 api_router = APIRouter()
 
@@ -141,7 +142,8 @@ def login(usuario: LoginSchema):
         try:
             usuario_db = session.query(Usuario).filter(Usuario.c.email == usuario.email).one()
             if usuario_db.password == usuario.password:
-                return {"message": "Inicio de sesión exitoso"}
+                return {"message": "Inicio de sesión exitoso",
+                        "email": usuario_db.email}
             else:
                 raise HTTPException(status_code=400, detail="Contraseña incorrecta")
         except NoResultFound:
@@ -504,3 +506,73 @@ def eliminar_pago_pedido(pedido_pago: PedidoPagoSchema):
     return {"message": "Pago pedido eliminado correctamente"}
 
 # Rutas de la API
+
+        
+@api_router.get("/editarPerfil/{email}")
+def obtener_perfil(email: str):
+    with Session(engine) as session:
+        try:
+            usuario_db = session.query(Usuario).filter(Usuario.c.email == email).one()
+            return {
+                "nombre": usuario_db.nombre,
+                "apellido": usuario_db.apellido,
+                "email": usuario_db.email,
+            }
+        except NoResultFound:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+
+@api_router.put("/editarPerfil")
+def actualizar_perfil(usuario_data: ActualizarPerfilSchema):
+    with Session(engine) as session:
+        try:
+            stmt = (
+                update(Usuario).
+                where(Usuario.c.email == usuario_data.email_viejo)
+            )
+            if usuario_data.nombre is not None:
+                stmt = stmt.values(nombre=usuario_data.nombre)
+            if usuario_data.apellido is not None:
+                stmt = stmt.values(apellido=usuario_data.apellido)
+            if usuario_data.nuevo_email is not None:
+                stmt = stmt.values(email=usuario_data.nuevo_email)
+            result = session.execute(stmt)
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            session.commit()
+            return {"message": "Perfil actualizado correctamente"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+        
+@api_router.put("/cambiarContrasena")
+def cambiar_contrasena(usuario_data: ActualizarContrasenaSchema):
+    with Session(engine) as session:
+        try:
+            stmt = (
+                update(Usuario).
+                where(Usuario.c.email == usuario_data.email).
+                values(password=usuario_data.password)
+            )
+            result = session.execute(stmt)
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            session.commit()
+            return {"message": "Contraseña actualizada correctamente"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+
+@api_router.post("/registrarUsuario")
+def registrar_usuario(usuario_data: RegistrarUsuarioSchema):
+    with Session(engine) as session:
+        try:
+            stmt = (
+                insert(Usuario).
+                values(email=usuario_data.email, password=usuario_data.password)
+            )
+            session.execute(stmt)
+            session.commit()
+            return {"message": "Usuario registrado correctamente"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
