@@ -263,28 +263,6 @@ def obtener_ingredientes_producto(idProducto:int):
                  "cantidad": row.cantidad, 
                  "nombreMedida": row.nombreMedida} for row in result]
     
-@api_router.post("/producto_ingrediente")
-def agregar_producto_ingrediente(producto_ingrediente: ProductoIngredienteSchema):
-    with Session(engine) as session:
-        # Verifica si el producto existe
-        producto = session.query(Producto).filter(Producto.c.idProducto == producto_ingrediente.idProducto).first()
-        if not producto:
-            return {"error": "Producto no encontrado"}
-        # Verifica si el ingrediente existe
-        ingrediente = session.query(Ingrediente).filter(Ingrediente.c.idIngrediente == producto_ingrediente.idIngrediente).first()
-        if not ingrediente:
-            return {"error": "Ingrediente no encontrado"}
-        # Inserta una nueva fila en la tabla ProductoIngrediente
-        session.execute(ProductoIngrediente.insert().values(idProducto=producto_ingrediente.idProducto, idIngrediente=producto_ingrediente.idIngrediente))
-        session.commit()
-    return {"message": "Producto ingrediente creado correctamente"}
-
-@api_router.delete("/producto_ingrediente")
-def eliminar_producto_ingrediente(producto_ingrediente: ProductoIngredienteSchema):
-    with Session(engine) as session:
-        session.execute(ProductoIngrediente.delete().where(ProductoIngrediente.c.idProducto == producto_ingrediente.idProducto).where(ProductoIngrediente.c.idIngrediente == producto_ingrediente.idIngrediente))
-        session.commit()
-    return {"message": "Producto ingrediente eliminado correctamente"}
 
 @api_router.get("/direccion/usuario/{idUsuario}")
 def obtener_direccion_usuario(idUsuario:int):
