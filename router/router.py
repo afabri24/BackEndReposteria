@@ -72,5 +72,29 @@ def crear_imagen_producto(data_producto_imagen:ProductoImagenSchema):
         session.execute(producto_imagen.insert().values(**new_producto_imagen))
         session.commit()
     return {"message": "Imagen producto creada correctamente"}
-    
-    
+
+
+@api_router.get("/productos_con_imagenes")
+def obtener_productos_con_imagenes():
+    with Session(engine) as session:
+        # Realiza un JOIN entre las tablas Producto y producto_imagen
+        stmt = select(Producto, producto_imagen.c.imagen64).\
+            join(producto_imagen, Producto.c.idProducto == producto_imagen.c.idProducto)
+        result = session.execute(stmt)
+        
+        # Formatea el resultado en un diccionario para cada producto con su información y sus imágenes
+        productos_con_imagenes = [ 
+            {
+                "idProducto": row.idProducto,
+                "nombre": row.nombre,
+                "descripcion": row.descripcion,
+                "costo": row.costo,
+                "imagenes": [
+                    {
+                        "imagen64": row.imagen64
+                    }
+                ]
+            } for row in result 
+        ]
+        
+        return productos_con_imagenes
