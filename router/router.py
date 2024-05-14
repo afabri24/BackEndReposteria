@@ -143,7 +143,9 @@ def login(usuario: LoginSchema):
             usuario_db = session.query(Usuario).filter(Usuario.c.email == usuario.email).one()
             if usuario_db.password == usuario.password:
                 return {"message": "Inicio de sesión exitoso",
-                        "email": usuario_db.email}
+                        "email": usuario_db.email,
+                        "idUsuario": usuario_db.idUsuario,
+                        "rol": usuario_db.rol}
             else:
                 raise HTTPException(status_code=400, detail="Contraseña incorrecta")
         except NoResultFound:
@@ -157,7 +159,6 @@ def obtener_todas_las_categorias():
         result = session.execute(stmt)
         return [{"idCategoria": row.idCategoria, "nombre": row.nombre} for row in result]
     
-
 #
 @api_router.get("/ingredientes")
 def obtener_todos_los_ingredientes():
@@ -569,7 +570,7 @@ def registrar_usuario(usuario_data: RegistrarUsuarioSchema):
         try:
             stmt = (
                 insert(Usuario).
-                values(email=usuario_data.email, password=usuario_data.password)
+                values(email=usuario_data.email, password=usuario_data.password, rol=1)
             )
             session.execute(stmt)
             session.commit()
