@@ -4,6 +4,7 @@ from schema.producto_schema import ProductoSchema
 from schema.producto_imagen_schema import ProductoImagenSchema
 from model.usuario import usuario as Usuario
 from fastapi import APIRouter
+from sqlalchemy import func
 
 
 # Importar los esquemas
@@ -22,6 +23,7 @@ from schema.pedido_producto_schema import PedidoProductoSchema
 from schema.pedido_pago_schema import PedidoPagoSchema
 from schema.carrito_producto_schema import CarritoProductoSchema
 from schema.usuario_direccion_schema import UsuarioDireccionSchema
+from schema.pedido_schema import PedidoEstadoSchema
 
 
 
@@ -577,6 +579,8 @@ def registrar_usuario(usuario_data: RegistrarUsuarioSchema):
             return {"message": "Usuario registrado correctamente"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        
+        
 @api_router.get("/productos_con_imagenes")
 def obtener_productos_con_imagenes():
     with Session(engine) as session:
@@ -601,3 +605,49 @@ def obtener_productos_con_imagenes():
         ]
         
         return productos_con_imagenes
+
+#unir pago y pedido
+@api_router.get("/pedidosypagos")
+def obtener_pedido_pago():
+    with Session(engine) as session:
+        stmt = select(PedidoPago.c.idPedido, PedidoPago.c.idPago, Pedido.c.fechaPedido, Pedido.c.idUsuario, Pedido.c.idDireccion, Pedido.c.codigoPedido, Pedido.c.fechaEntrega, Pedido.c.estado, PedidoPago.c.total, PedidoPago.c.tipo, PedidoPago.c.imagenPago64).\
+            join(Pedido, Pedido.c.idPedido == PedidoPago.c.idPedido)
+        result = session.execute(stmt)
+        return [{"idPedido": row.idPedido, "idPago": row.idPago, "fechaPedido": row.fechaPedido, "idUsuario": row.idUsuario, "idDireccion": row.idDireccion, "codigoPedido": row.codigoPedido, "fechaEntrega": row.fechaEntrega, "estado": row.estado, "total": row.total, "tipo": row.tipo, "imagenPago64": row.imagenPago64} for row in result]
+
+#Unir pedido, producto y producto_imagen con id pedido
+@api_router.get("/pedidosproductosimagenes/{idPedido}")
+def obtener_pedido_producto_imagen(idPedido:int):
+    with Session(engine) as session:
+        stmt = select(PedidoProducto.c.idPedido, PedidoProducto.c.idProducto, Producto.c.nombre, Producto.c.descripcion, Producto.c.costo).\
+            join(Producto, Producto.c.idProducto == PedidoProducto.c.idProducto).\
+            where(PedidoProducto.c.idPedido == idPedido)
+        result = session.execute(stmt)
+        return [{"idPedido": row.idPedido, "idProducto": row.idProducto, "nombre": row.nombre, "descripcion": row.descripcion, "costo": row.costo} for row in result]
+    
+#cambiar estado Pedido
+@api_router.put("/pedido_estado")
+def cambiar_estado_pedido(pedido: PedidoEstadoSchema):
+    with Session(engine) as session:
+        stmt = (
+            update(Pedido).
+            where(Pedido.c.idPedido == pedido.idPedido).
+            values(estado=pedido.estado)
+        )
+        result = session.execute(stmt)
+        if result.rowcount:
+            session.commit()
+            return {"message": "Estado del pedido actualizado correctamente"}
+        else:
+            raise HTTPException(status_code=404, detail="Pedido no encontrado")
+        
+#Recuperar imagen pago del pedido
+@api_router.get("/imagen_pago_pedido/{idPedido}")
+def obtener_imagen_pago_pedido(idPedido:int):
+    with Session(engine) as session:
+        stmt = select(PedidoPago.c.idPedido, PedidoPago.c.idPago, PedidoPago.c.imagenPago64).\
+            where(PedidoPago.c.idPedido == idPedido)
+        result = session.execute(stmt)
+        return [{"idPedido": row.idPedido, "idPago": row.idPago, "imagenPago64": row.imagenPago64} for row in result]
+
+    
