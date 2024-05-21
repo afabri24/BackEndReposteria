@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from schema.usuario_schema import UsuarioSchema
 from schema.producto_schema import ProductoSchema
 from schema.producto_imagen_schema import ProductoImagenSchema
@@ -8,8 +8,6 @@ from model.producto_imagen import producto_imagen
 from config.db import engine
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
-from sqlalchemy import insert
 
 api_router = APIRouter()
 
@@ -17,14 +15,12 @@ api_router = APIRouter()
 def root():
     return {"message": "Hi, I'm the user router!"}
 
-
 @api_router.get("/usuarios")
 def obtener_todos_los_usuarios():
     with Session(engine) as session:
         stmt = select(usuario)
         result = session.execute(stmt)
         return [{"idUsuario": row.idUsuario, "nombre": row.nombre, "apellido": row.apellido, "email": row.email, "password": row.password, "rol": row.rol} for row in result]
-
 
 @api_router.post("/usuario")
 def crear_usuario(data_usuario:UsuarioSchema):
@@ -35,7 +31,6 @@ def crear_usuario(data_usuario:UsuarioSchema):
         session.execute(usuario.insert().values(**new_usuario))
         session.commit()
     return {"message": "Usuario creado correctamente"}
-    
 
 @api_router.put("/usuario/")
 def actualizar_usuario(data_usuario:UsuarioSchema):
@@ -47,7 +42,7 @@ def obtener_todos_los_productos():
         stmt = select(Producto)
         result = session.execute(stmt)
         return [{"idProducto": row.idProducto, "nombre": row.nombre, "descripcion": row.descripcion, "costo": row.costo} for row in result]
-    
+
 @api_router.post("/productos")
 def crear_producto(data_producto:ProductoSchema):
     new_producto = data_producto.dict()
@@ -73,7 +68,6 @@ def crear_imagen_producto(data_producto_imagen:ProductoImagenSchema):
         session.commit()
     return {"message": "Imagen producto creada correctamente"}
 
-
 @api_router.get("/productos_con_imagenes")
 def obtener_productos_con_imagenes():
     with Session(engine) as session:
@@ -98,3 +92,17 @@ def obtener_productos_con_imagenes():
         ]
         
         return productos_con_imagenes
+
+@api_router.delete("/producto/{id}")
+def eliminar_producto(id: int):
+    with Session(engine) as session:
+        # Verifica si el producto existe
+        producto_a_eliminar = session.query(Producto).filter(Producto.c.idProducto == id).first()
+        if not producto_a_eliminar:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+        
+        # Elimina el producto
+        session.execute(Producto.delete().where(Producto.c.idProducto == id))
+        session.commit()
+        
+        return {"message": "Producto eliminado correctamente"}
