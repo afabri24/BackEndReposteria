@@ -649,5 +649,19 @@ def obtener_imagen_pago_pedido(idPedido:int):
             where(PedidoPago.c.idPedido == idPedido)
         result = session.execute(stmt)
         return [{"idPedido": row.idPedido, "idPago": row.idPago, "imagenPago64": row.imagenPago64} for row in result]
+    
+#Unir pedido, Usuario, Direccion y pago
+@api_router.get("/pedidosusuariosdireccionespagos")
+def obtener_pedido_usuario_direccion_pago():
+    with Session(engine) as session:
+        stmt = select(Pedido.c.idPedido, Pedido.c.fechaPedido, Pedido.c.idUsuario, Usuario.c.nombre, Usuario.c.apellido, Pedido.c.idDireccion, Direccion.c.calle, Direccion.c.ciudad, Direccion.c.estado, Direccion.c.colonia, Direccion.c.numeroExterior, Direccion.c.numeroInterior, Direccion.c.codigoPostal, Pedido.c.codigoPedido, Pedido.c.fechaEntrega, Pedido.c.estado, PedidoPago.c.total, PedidoPago.c.tipo, PedidoPago.c.imagenPago64).\
+            join(Usuario, Usuario.c.idUsuario == Pedido.c.idUsuario).\
+            join(Direccion, Direccion.c.idDireccion == Pedido.c.idDireccion).\
+            join(PedidoPago, PedidoPago.c.idPedido == Pedido.c.idPedido)
+        result = session.execute(stmt)
+        return [{"idPedido": row.idPedido, "fechaPedido": row.fechaPedido, "idUsuario": row.idUsuario, "nombre": row.nombre, "apellido": row.apellido, "idDireccion": row.idDireccion, "calle": row.calle, "ciudad": row.ciudad, "estado": row.estado, "colonia": row.colonia, "numeroExterior": row.numeroExterior, "numeroInterior": row.numeroInterior, "codigoPostal": row.codigoPostal, "codigoPedido": row.codigoPedido, "fechaEntrega": row.fechaEntrega, "estado": row.estado, "total": row.total, "tipo": row.tipo, "imagenPago64": row.imagenPago64} for row in result]
+
+
+
 
     
