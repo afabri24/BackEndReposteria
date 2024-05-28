@@ -295,7 +295,7 @@ def obtener_direccion_usuario(idUsuario:int):
         # Buscar en la tabla UsuarioDireccion
         usuario_direcciones = session.query(UsuarioDireccion).filter(UsuarioDireccion.c.idUsuario == idUsuario).all()
         if not usuario_direcciones:
-            return {"error": "Usuario no encontrado"}
+            return {"error": "True", "message": "Usuario no tiene direcciones asociadas"}
 
         # Buscar en la tabla Direccion
         direcciones = []
@@ -661,7 +661,37 @@ def obtener_pedido_usuario_direccion_pago():
         result = session.execute(stmt)
         return [{"idPedido": row.idPedido, "fechaPedido": row.fechaPedido, "idUsuario": row.idUsuario, "nombre": row.nombre, "apellido": row.apellido, "idDireccion": row.idDireccion, "calle": row.calle, "ciudad": row.ciudad, "estado": row.estado, "colonia": row.colonia, "numeroExterior": row.numeroExterior, "numeroInterior": row.numeroInterior, "codigoPostal": row.codigoPostal, "codigoPedido": row.codigoPedido, "fechaEntrega": row.fechaEntrega, "estado": row.estado, "total": row.total, "tipo": row.tipo, "imagenPago64": row.imagenPago64} for row in result]
 
-
+#Unir pedido, Usuario, Direccion y pago pero con id Usuario
+@api_router.get("/pedidosusuariosdireccionespagos/{idUsuario}")
+def obtener_pedido_usuario_direccion_pago_usuario(idUsuario:int):
+    with Session(engine) as session:
+        stmt = select(Pedido.c.idPedido, Pedido.c.fechaPedido, Pedido.c.idUsuario, Usuario.c.nombre, Usuario.c.apellido, Pedido.c.idDireccion, Direccion.c.calle, Direccion.c.ciudad, Direccion.c.estado.label('estadoDireccion'), Direccion.c.colonia, Direccion.c.numeroExterior, Direccion.c.numeroInterior, Direccion.c.codigoPostal, Pedido.c.codigoPedido, Pedido.c.fechaEntrega, Pedido.c.estado.label('estadoPedido'), PedidoPago.c.total, PedidoPago.c.tipo, PedidoPago.c.imagenPago64).\
+            join(Usuario, Usuario.c.idUsuario == Pedido.c.idUsuario).\
+            join(Direccion, Direccion.c.idDireccion == Pedido.c.idDireccion).\
+            join(PedidoPago, PedidoPago.c.idPedido == Pedido.c.idPedido).\
+            where(Pedido.c.idUsuario == idUsuario)
+        result = session.execute(stmt)
+        return [{
+            "idPedido": row.idPedido, 
+            "fechaPedido": row.fechaPedido, 
+            "idUsuario": row.idUsuario, 
+            "nombre": row.nombre, 
+            "apellido": row.apellido, 
+            "idDireccion": row.idDireccion, 
+            "calle": row.calle, 
+            "ciudad": row.ciudad, 
+            "estadoDireccion": row.estadoDireccion,  # Cambiado a 'estadoDireccion'
+            "colonia": row.colonia, 
+            "numeroExterior": row.numeroExterior, 
+            "numeroInterior": row.numeroInterior, 
+            "codigoPostal": row.codigoPostal, 
+            "codigoPedido": row.codigoPedido, 
+            "fechaEntrega": row.fechaEntrega, 
+            "estadoPedido": row.estadoPedido,  # Cambiado a 'estadoPedido'
+            "total": row.total, 
+            "tipo": row.tipo, 
+            "imagenPago64": row.imagenPago64
+        } for row in result]
 
 
     
