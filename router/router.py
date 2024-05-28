@@ -53,6 +53,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import joinedload
 from sqlalchemy import join
 from sqlalchemy.sql import text
+from sqlalchemy import select, join
 
 from sqlalchemy import update
 
@@ -601,3 +602,44 @@ def obtener_productos_con_imagenes():
         ]
         
         return productos_con_imagenes
+
+
+
+
+@api_router.get("/historialPedidos/{email}")
+def obtener_historial_pedidos(email: str):
+    with Session(engine) as session:
+        try:
+            usuario = session.query(Usuario).filter(Usuario.c.email == email).one()
+            stmt = (
+                select(
+                    Pedido.c.codigoPedido,
+                    Pedido.c.estado,
+                    Pedido.c.fechaPedido,
+                    Pedido.c.fechaEntrega,
+                    Direccion.c.calle,
+                    Direccion.c.colonia
+                ).
+                select_from(
+                    Pedido.join(Usuario, Usuario.c.idUsuario == Pedido.c.idUsuario).
+                    join(Direccion, Direccion.c.idDireccion == Pedido.c.idDireccion)
+                )
+            )
+            if usuario.rol != 2:
+                stmt = stmt.where(Usuario.c.email == email)
+            else:
+                stmt = stmt.add_columns(Usuario.c.nombre)
+            result = session.execute(stmt).fetchall()
+            return [
+                {
+                    "codigoPedido": row.codigoPedido,
+                    "estado": row.estado,
+                    "fechaPedido": row.fechaPedido,
+                    "fechaEntrega": row.fechaEntrega,
+                    "calle": row.calle,
+                    "colonia": row.colonia,
+                    "nombreUsuario": row.nombre if usuario.rol == 2 else None
+                } for row in result
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
