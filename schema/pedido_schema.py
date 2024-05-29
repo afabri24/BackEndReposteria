@@ -11,4 +11,7 @@ class PedidoSchema(BaseModel):
     estado: str
     codigoPedido: str
     
+class PedidoEstadoSchema(BaseModel):
+    idPedido: int
+    estado: str
     
