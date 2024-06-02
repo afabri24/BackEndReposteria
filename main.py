@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173",  # Permitir solicitudes desde este origen
+    "http://localhost:5173",
+    "http://localhost",# Permitir solicitudes desde este origen
     # puedes agregar más orígenes si es necesario
 ]
 

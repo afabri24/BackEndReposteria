@@ -9,3 +9,7 @@ class PedidoPagoSchema(BaseModel):
     imagenPago64: Optional[bytes]
     class Config:
         orm_mode = True
+        
+class PedidoPagoImagenSchema(BaseModel):
+    idPago: int
+    imagenPago64: bytes
