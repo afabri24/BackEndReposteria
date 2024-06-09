@@ -6,6 +6,7 @@ from model.usuario import usuario as Usuario
 from fastapi import APIRouter
 from sqlalchemy import func
 from base64 import b64decode
+from config.email import send_email
 
 
 # Importar los esquemas
@@ -647,6 +648,13 @@ def obtener_pedido_producto_imagen(idPedido:int):
 @api_router.put("/pedido_estado")
 def cambiar_estado_pedido(pedido: PedidoEstadoSchema):
     with Session(engine) as session:
+        #obtener correo del usuario a traves del idPedido
+        stmtCorreo = select(Usuario.c.email).\
+            join(Pedido, Pedido.c.idUsuario == Usuario.c.idUsuario).\
+            where(Pedido.c.idPedido == pedido.idPedido)
+        resultCorreo = session.execute(stmtCorreo)
+        correo=resultCorreo.fetchone()
+        #actualizar estado del pedido
         stmt = (
             update(Pedido).
             where(Pedido.c.idPedido == pedido.idPedido).
@@ -654,8 +662,13 @@ def cambiar_estado_pedido(pedido: PedidoEstadoSchema):
         )
         result = session.execute(stmt)
         if result.rowcount:
-            session.commit()
-            return {"message": "Estado del pedido actualizado correctamente"}
+            if send_email("Su Pedido ha sido actualizado", "Su pedido ha cambiando a este estado: "+pedido.estado,correo[0]):
+                session.commit()
+                return {"message": "Estado del pedido actualizado correctamente y se envío el correo"}
+            else :
+                session.commit()
+                return {"message": "Estado del pedido actualizado correctamente pero no se pudo enviar el correo"}
+           
         else:
             raise HTTPException(status_code=404, detail="Pedido no encontrado")
         
@@ -754,3 +767,23 @@ def obtener_historial_pedidos(email: str):
             ]
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        
+        
+#Mandar un correo al administrador
+@api_router.post("/correoAdministrador")
+def enviar_correo():
+    if send_email("Nuevo Pedido", "Se ha realizado un nuevo pedido revise el sistema para mas detalles", "afabri24seth24@gmail.com"):
+        return {"message": "Correo enviado correctamente"}
+    else:
+        return {"message": "No se pudo enviar el correo"}
+        
+#obtener correo de usuario atraves del idPedido
+@api_router.get("/correoUsuario/{idPedido}")
+def obtener_correo_usuario(idPedido:int):
+    with Session(engine) as session:
+        stmt = select(Usuario.c.email).\
+            join(Pedido, Pedido.c.idUsuario == Usuario.c.idUsuario).\
+            where(Pedido.c.idPedido == idPedido)
+        result = session.execute(stmt)
+        return [{"email": row.email} for row in result]
+
