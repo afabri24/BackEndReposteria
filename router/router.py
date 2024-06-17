@@ -60,6 +60,9 @@ from sqlalchemy.sql import text
 from sqlalchemy import select, join
 
 from sqlalchemy import update
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 api_router = APIRouter()
 
@@ -787,3 +790,57 @@ def obtener_correo_usuario(idPedido:int):
         result = session.execute(stmt)
         return [{"email": row.email} for row in result]
 
+
+
+@api_router.get("/validate-email")
+def validar_email(email: str):
+    with Session(engine) as session:
+        try:
+            stmt = select(Usuario).where(Usuario.c.email == email)
+            result = session.execute(stmt).fetchone()
+            if result is None:
+                raise HTTPException(status_code=404, detail="Este correo electrónico no está registrado en nuestra base de datos.")
+            return {"exists": True}
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        
+from pydantic import BaseModel
+
+class PasswordChange(BaseModel):
+    email: str
+    newPassword: str
+
+@api_router.post("/change-password")
+def cambiar_password(request: PasswordChange):
+    with Session(engine) as session:
+        try:
+            stmt = (
+                update(Usuario).
+                where(Usuario.c.email == request.email).
+                values(password=request.newPassword)
+            )
+            session.execute(stmt)
+            session.commit()
+            return {"status": "success"}
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        
+
+@api_router.post("/cancelar-pedido/{codigoPedido}")
+def cancelar_pedido(codigoPedido: str):  # Cambia 'int' a 'str'
+    with Session(engine) as session:
+        try:
+            stmt = (
+                update(Pedido).
+                where(Pedido.c.codigoPedido == codigoPedido).
+                values(estado='cancelado')
+            )
+            session.execute(stmt)
+            session.commit()
+            return {"status": "success"}
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
