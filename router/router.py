@@ -5,6 +5,8 @@ from schema.producto_imagen_schema import ProductoImagenSchema
 from model.usuario import usuario as Usuario
 from fastapi import APIRouter
 from sqlalchemy import func
+from base64 import b64decode
+from config.email import send_email
 
 
 # Importar los esquemas
@@ -20,7 +22,7 @@ from schema.carrito_schema import CarritoSchema
 from schema.direccion_schema import DireccionSchema
 from schema.pedido_schema import PedidoSchema
 from schema.pedido_producto_schema import PedidoProductoSchema
-from schema.pedido_pago_schema import PedidoPagoSchema
+from schema.pedido_pago_schema import PedidoPagoSchema, PedidoPagoImagenSchema
 from schema.carrito_producto_schema import CarritoProductoSchema
 from schema.usuario_direccion_schema import UsuarioDireccionSchema
 from schema.pedido_schema import PedidoEstadoSchema
@@ -502,6 +504,22 @@ def actualizar_pago_pedido(pedido_pago: PedidoPagoSchema):
         session.commit()
     return {"message": "Pago pedido actualizado correctamente"}
 
+
+#actualizar imagen pago pedido
+@api_router.put("/pedido_pago_imagen")
+def actualizar_imagen_pago_pedido(pedido_pago_imagen: PedidoPagoImagenSchema):
+    with Session(engine) as session:
+        # Check if imagenPago64 is already bytes
+        if isinstance(pedido_pago_imagen.imagenPago64, bytes):
+            imagenPago64_bytes = pedido_pago_imagen.imagenPago64
+        else:
+            # Decode the base64 string to bytes
+            imagenPago64_bytes = b64decode(pedido_pago_imagen.imagenPago64.split(",")[1])
+
+        session.execute(PedidoPago.update().where(PedidoPago.c.idPago == pedido_pago_imagen.idPago).values(imagenPago64=imagenPago64_bytes))
+        session.commit()
+    return {"message": "Imagen pago pedido actualizado correctamente"}
+
 @api_router.delete("/pedido_pago")
 def eliminar_pago_pedido(pedido_pago: PedidoPagoSchema):
     with Session(engine) as session:
@@ -630,6 +648,13 @@ def obtener_pedido_producto_imagen(idPedido:int):
 @api_router.put("/pedido_estado")
 def cambiar_estado_pedido(pedido: PedidoEstadoSchema):
     with Session(engine) as session:
+        #obtener correo del usuario a traves del idPedido
+        stmtCorreo = select(Usuario.c.email).\
+            join(Pedido, Pedido.c.idUsuario == Usuario.c.idUsuario).\
+            where(Pedido.c.idPedido == pedido.idPedido)
+        resultCorreo = session.execute(stmtCorreo)
+        correo=resultCorreo.fetchone()
+        #actualizar estado del pedido
         stmt = (
             update(Pedido).
             where(Pedido.c.idPedido == pedido.idPedido).
@@ -637,8 +662,13 @@ def cambiar_estado_pedido(pedido: PedidoEstadoSchema):
         )
         result = session.execute(stmt)
         if result.rowcount:
-            session.commit()
-            return {"message": "Estado del pedido actualizado correctamente"}
+            if send_email("Su Pedido ha sido actualizado", "Su pedido ha cambiando a este estado: "+pedido.estado,correo[0]):
+                session.commit()
+                return {"message": "Estado del pedido actualizado correctamente y se envío el correo"}
+            else :
+                session.commit()
+                return {"message": "Estado del pedido actualizado correctamente pero no se pudo enviar el correo"}
+           
         else:
             raise HTTPException(status_code=404, detail="Pedido no encontrado")
         
@@ -666,7 +696,7 @@ def obtener_pedido_usuario_direccion_pago():
 @api_router.get("/pedidosusuariosdireccionespagos/{idUsuario}")
 def obtener_pedido_usuario_direccion_pago_usuario(idUsuario:int):
     with Session(engine) as session:
-        stmt = select(Pedido.c.idPedido, Pedido.c.fechaPedido, Pedido.c.idUsuario, Usuario.c.nombre, Usuario.c.apellido, Pedido.c.idDireccion, Direccion.c.calle, Direccion.c.ciudad, Direccion.c.estado.label('estadoDireccion'), Direccion.c.colonia, Direccion.c.numeroExterior, Direccion.c.numeroInterior, Direccion.c.codigoPostal, Pedido.c.codigoPedido, Pedido.c.fechaEntrega, Pedido.c.estado.label('estadoPedido'), PedidoPago.c.total, PedidoPago.c.tipo, PedidoPago.c.imagenPago64).\
+        stmt = select(Pedido.c.idPedido, Pedido.c.fechaPedido, Pedido.c.idUsuario, Usuario.c.nombre, Usuario.c.apellido, Pedido.c.idDireccion, Direccion.c.calle, Direccion.c.ciudad, Direccion.c.estado.label('estadoDireccion'), Direccion.c.colonia, Direccion.c.numeroExterior, Direccion.c.numeroInterior, Direccion.c.codigoPostal, Pedido.c.codigoPedido, Pedido.c.fechaEntrega, Pedido.c.estado.label('estadoPedido'), PedidoPago.c.total, PedidoPago.c.tipo,PedidoPago.c.idPago, PedidoPago.c.imagenPago64).\
             join(Usuario, Usuario.c.idUsuario == Pedido.c.idUsuario).\
             join(Direccion, Direccion.c.idDireccion == Pedido.c.idDireccion).\
             join(PedidoPago, PedidoPago.c.idPedido == Pedido.c.idPedido).\
@@ -691,7 +721,8 @@ def obtener_pedido_usuario_direccion_pago_usuario(idUsuario:int):
             "estadoPedido": row.estadoPedido,  # Cambiado a 'estadoPedido'
             "total": row.total, 
             "tipo": row.tipo, 
-            "imagenPago64": row.imagenPago64
+            "imagenPago64": row.imagenPago64,
+            "idPago": row.idPago
         } for row in result]
 
 
@@ -736,3 +767,23 @@ def obtener_historial_pedidos(email: str):
             ]
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        
+        
+#Mandar un correo al administrador
+@api_router.post("/correoAdministrador")
+def enviar_correo():
+    if send_email("Nuevo Pedido", "Se ha realizado un nuevo pedido revise el sistema para mas detalles", "afabri24seth24@gmail.com"):
+        return {"message": "Correo enviado correctamente"}
+    else:
+        return {"message": "No se pudo enviar el correo"}
+        
+#obtener correo de usuario atraves del idPedido
+@api_router.get("/correoUsuario/{idPedido}")
+def obtener_correo_usuario(idPedido:int):
+    with Session(engine) as session:
+        stmt = select(Usuario.c.email).\
+            join(Pedido, Pedido.c.idUsuario == Usuario.c.idUsuario).\
+            where(Pedido.c.idPedido == idPedido)
+        result = session.execute(stmt)
+        return [{"email": row.email} for row in result]
+
